@@ -1,6 +1,3 @@
-# refine data set
-# descriptive analysis eg. plot evolution of variables over time
-# check for missing/zero/null values
 # select regression
 # choose & build variables, eg. HHI
 # perform variable selection
@@ -25,22 +22,20 @@ summary(data) # statistical summary for each variable
 NROW(na.omit(data)) # to remove rows with null values
 
 pdata <- filter(data, sector==5) # data set filtered for HEALTHCARE sector (5)
+summary(pdata)
+
+pdata <- filter(pdata, assets>0)
+pdata <- filter(pdata, sales>0)
+pdata <- filter(pdata, mv>0)
+pdata <- filter(pdata, fv>0)
+summary(pdata)
 
 require(dplyr)
 pdata %>% count(id) # the panel is actually unbalanced, i.e., there are a different number of observations for each firm
+pdata %>% count(year)
 pdata %>% is.pbalanced() #FALSE
 
 filter(pdata, id==1) # just one example
-
-id <- table(pdata$id)
-pdata <- pdata[pdata$id %in% names(id)[id>2],] # remove the companies for which we have less than 2 observations
-pdata %>% count(id) # check
-
-# this plot looks bad because of: -too many ids; -unbalanced panel
-#ggplot(data=pdata, aes(x=year,y=sales)) +
-#  geom_line(aes(colour=as.factor(id))) +
-#  labs(x="Year", y="Sales") +
-#  theme(legend.position="none")
 
 # scatter plot of sales over time; the blue line connects the mean values of sales to show the trend
 pdata %>%
@@ -67,3 +62,20 @@ fig1 <- ggplot(data=sales_by_year, aes(x=year, y=sales)) +
   theme(axis.text.y = element_text(size=8)) +
   scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
 fig1
+
+# ADD CORRELATION MATRIX (MUST INCLUDE THE DEPENDENT VARIABLE)
+
+id <- table(pdata$id)
+pdata <- pdata[pdata$id %in% names(id)[id>3],] # remove the companies for which we have less than 3 observations
+pdata %>% count(id) # check
+
+colnames(sales_by_year) <- c("year", "tot_sales")
+data = list(pdata, sales_by_year)
+data = data %>% reduce(full_join, by=data$year)
+data$mkt_share = (data$sales/data$tot_sales)*100
+
+check = summarise_at(group_by(data, year), vars(mkt_share), sum) # FIX
+
+# for interactions: pick focal variable, select interaction term, include focal x interaction
+# in the regression, compute the derivative of the dependent var wrt to the focal, plot margins against various values of the interaction term
+# use quantiles on the x axis (take them from the summary for the interaction term variable)
