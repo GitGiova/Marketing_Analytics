@@ -1,8 +1,3 @@
-# perform variable selection
-
-# first regression: firm value --> independent variables using HEALTHCARE sector
-# then maybe perform regressions comparing different sectors
-
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -89,7 +84,17 @@ fig2 <- ggplot(data=hhi_by_year, aes(x=year, y=hhi_index)) +
   geom_hline(yintercept = 2500, colour='orange', lty="dashed")
 fig2
 
+########## MODEL ##########
+pdata_frame <- pdata.frame(data, index=c("id","year"))
+pdim(pdata_frame)
+
+# pooled OLS regression
+pooled <- plm(fv ~ sales + ad + rd + assets, data=data, index=c("id", "year"), model="pooling")
+summary(pooled)
+
 
 # for interactions: pick focal variable, select interaction term, include focal x interaction
 # in the regression, compute the derivative of the dependent var wrt to the focal, plot margins against various values of the interaction term
 # use quantiles on the x axis (take them from the summary for the interaction term variable)
+
+# perform variable selection
