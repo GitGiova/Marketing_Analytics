@@ -2,6 +2,7 @@ library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(plm)
+library(interplot)
 
 rm(list=ls()) # clear environment
 
@@ -61,8 +62,6 @@ fig1 <- ggplot(data=sales_by_year, aes(x=year, y=tot_sales)) +
   scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
 fig1
 
-# ADD CORRELATION MATRIX (MUST INCLUDE THE DEPENDENT VARIABLE)
-
 data = list(pdata, sales_by_year)
 data = data %>% reduce(full_join, by=data$year)
 data$mkt_share = (data$sales/data$tot_sales)*100
@@ -92,9 +91,20 @@ pdim(pdata_frame)
 pooled <- plm(fv ~ sales + ad + rd + assets, data=data, index=c("id", "year"), model="pooling")
 summary(pooled)
 
-
 # for interactions: pick focal variable, select interaction term, include focal x interaction
 # in the regression, compute the derivative of the dependent var wrt to the focal, plot margins against various values of the interaction term
 # use quantiles on the x axis (take them from the summary for the interaction term variable)
+# eg. interaction between ad (focal) and rd (interaction term), i.e. wanna see how much adv impacts firm value at different levels of R&D
+quants <- quantile(data$sales, probs=seq(0,1,1/10))
+pooled_interaction <- lm(fv ~ sales + ad + rd + assets + rd*ad, data=data)
+summary(pooled_interaction)
 
-# perform variable selection
+# this interaction plot library only works with lm and not plm; however, if we work with pooled ols the output is the same
+interplot(pooled_interaction, 
+          var1 = "ad",
+          var2 = "rd")+
+  labs(x = "R&D Expense",
+       y = "Marginal Effect of Advertising")
+
+# perform variable selection TO DO
+# add correlation matrix including dependent variable TO DO
