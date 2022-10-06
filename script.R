@@ -23,6 +23,7 @@ pdata <- filter(pdata, assets>0)
 pdata <- filter(pdata, sales>0)
 pdata <- filter(pdata, mv>0)
 pdata <- filter(pdata, fv>0)
+pdata <- filter(pdata, mkt>0)
 summary(pdata)
 
 require(dplyr)
@@ -32,7 +33,7 @@ pdata %>% is.pbalanced() #FALSE
 
 filter(pdata, id==1) # just one example
 id <- table(pdata$id)
-pdata <- pdata[pdata$id %in% names(id)[id>3],] # remove the companies for which we have less than 3 observations
+pdata <- pdata[pdata$id %in% names(id)[id>1],] # remove the companies for which we have less than 3 observations
 pdata %>% count(id) # check
 
 # scatter plot of sales over time; the blue line connects the mean values of sales to show the trend
@@ -55,7 +56,8 @@ sales_by_year = summarise_at(group_by(pdata, year), vars(sales), sum)
 colnames(sales_by_year) <- c("year", "tot_sales")
 
 fig1 <- ggplot(data=sales_by_year, aes(x=year, y=tot_sales)) +
-  geom_bar(stat="identity", fill="steelblue") +
+  geom_line(color="steelblue") +
+  geom_area(fill='steelblue', alpha=0.6) +
   theme_minimal() +
   labs(x="Year", y="Total Sales (million $)") +
   theme(axis.text.y = element_text(size=8)) +
@@ -71,10 +73,13 @@ data$mkt_share_sq ='^'(data$mkt_share,2)
 hhi_by_year = summarise_at(group_by(data, year), vars(mkt_share_sq), sum)
 colnames(hhi_by_year) <- c("year", "hhi_index")
 
+data = list(data, hhi_by_year)
+data = data %>% reduce(full_join, by=data$year)
+
 fig2 <- ggplot(data=hhi_by_year, aes(x=year, y=hhi_index)) +
-  geom_bar(stat="identity", fill="grey") +
-  geom_line(color="blue") +
-  geom_point(color="blue") +
+  geom_area(fill="dark green", alpha=0.4) +
+  geom_line(color="dark green") +
+  geom_point(color="dark green") +
   theme_minimal() +
   labs(x="Year", y="HHI Index") +
   theme(axis.text.y = element_text(size=8)) +
@@ -83,28 +88,25 @@ fig2 <- ggplot(data=hhi_by_year, aes(x=year, y=hhi_index)) +
   geom_hline(yintercept = 2500, colour='orange', lty="dashed")
 fig2
 
+data$ads = (data$ad/data$sales)
+data$rds = (data$rd/data$sales)
+data$mkts = (data$mkt/data$sales)
+
+data$ad_intensity = (data$ad/data$assets)
+
+ad_by_year = summarise_at(group_by(data, year), vars(ad), sum)
+colnames(ad_by_year) <- c("year", "tot_ad")
+data = list(data, ad_by_year)
+data = data %>% reduce(full_join, by=data$year)
+data$sov = (data$ad/data$tot_ad)
+
 ########## MODEL ##########
 pdata_frame <- pdata.frame(data, index=c("id","year"))
 pdim(pdata_frame)
 
-# pooled OLS regression
-pooled <- plm(fv ~ sales + ad + rd + assets, data=data, index=c("id", "year"), model="pooling")
-summary(pooled)
+require(dplyr)
 
-# for interactions: pick focal variable, select interaction term, include focal x interaction
-# in the regression, compute the derivative of the dependent var wrt to the focal, plot margins against various values of the interaction term
-# use quantiles on the x axis (take them from the summary for the interaction term variable)
-# eg. interaction between ad (focal) and rd (interaction term), i.e. wanna see how much adv impacts firm value at different levels of R&D
-quants <- quantile(data$sales, probs=seq(0,1,1/10))
-pooled_interaction <- lm(fv ~ sales + ad + rd + assets + rd*ad, data=data)
-summary(pooled_interaction)
+n_distinct(pdata_frame$id)
+#pdata_frame <- transform(pdata_frame, lag_mkt=lag(pdata_frame$mkt))
 
-# this interaction plot library only works with lm and not plm; however, if we work with pooled ols the output is the same
-interplot(pooled_interaction, 
-          var1 = "ad",
-          var2 = "rd")+
-  labs(x = "R&D Expense",
-       y = "Marginal Effect of Advertising")
-
-# perform variable selection TO DO
-# add correlation matrix including dependent variable TO DO
+write_csv(pdata_frame, "C:\\Users\\ggatt\\OneDrive\\Desktop\\marketing analytics\\R_project\\regr_data.csv")
